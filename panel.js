@@ -11,14 +11,23 @@ const ROW_HEIGHT = 48;
 
 // Hand-rolled expand panel (not PopupMenu.PopupMenu) so we control the
 // 4-direction flip ourselves via nodePosition.computePanelPlacement().
-// Dismissal uses Main.pushModal/popModal, the same mechanism
-// PopupMenu.PopupMenu itself relies on for "click outside closes it".
+//
+// Dismissal uses Main.pushModal/popModal, but the grab target (`this.actor`)
+// is a full-stage-sized invisible root, not the visible panel box itself.
+// Once a grab is active, clicks outside the grabbed actor's subtree aren't
+// delivered as normal Clutter events at all -- there's nothing to catch on
+// global.stage, not just a misidentified source. Making the grabbed actor
+// cover the whole stage, with the real panel as its child, means every
+// click is legitimately "inside the grab": clicks on the visible content
+// are picked (and absorbed) by it or its rows as usual, and clicks on the
+// empty rest of the root are picked as the root itself, which is exactly
+// when we want to close.
 export class Panel {
     constructor({onClose}) {
         this.onClose = onClose;
         this.actor = null;
+        this._content = null;
         this._grab = null;
-        this._stageButtonId = null;
         this._stageKeyId = null;
     }
 
@@ -36,11 +45,20 @@ export class Panel {
         });
         this._populate(box);
 
-        this.actor = new St.Bin({
+        this._content = new St.Bin({
             style_class: 'popup-menu-boxpointer putty-panel-bin',
             child: box,
             reactive: true,
         });
+        // Absorb clicks that land on the panel's own padding/background
+        // (not on a specific row) so they don't bubble up to the root and
+        // get treated as an outside click.
+        this._content.connect('button-press-event', () => Clutter.EVENT_STOP);
+
+        this.actor = new St.Widget({reactive: true, x: 0, y: 0});
+        const [stageWidth, stageHeight] = global.stage.get_size();
+        this.actor.set_size(stageWidth, stageHeight);
+        this.actor.add_child(this._content);
         Main.layoutManager.addChrome(this.actor);
 
         const [, naturalWidth] = box.get_preferred_width(-1);
@@ -49,15 +67,13 @@ export class Panel {
         const panelSize = {width, height: naturalHeight};
 
         const placement = computePanelPlacement({nodeRect, panelSize, workArea});
-        this.actor.set_position(Math.round(placement.x), Math.round(placement.y));
-        this.actor.set_size(panelSize.width, panelSize.height);
+        this._content.set_position(Math.round(placement.x), Math.round(placement.y));
+        this._content.set_size(panelSize.width, panelSize.height);
 
         this._grab = Main.pushModal(this.actor, {actionMode: Shell.ActionMode.POPUP});
-        this._stageButtonId = global.stage.connect('button-press-event', (actor, event) => {
-            const [px, py] = event.get_coords();
-            if (!this._pointInsidePanel(px, py))
-                this.close();
-            return Clutter.EVENT_PROPAGATE;
+        this.actor.connect('button-press-event', () => {
+            this.close();
+            return Clutter.EVENT_STOP;
         });
         this._stageKeyId = global.stage.connect('key-press-event', (actor, event) => {
             if (event.get_key_symbol() === Clutter.KEY_Escape) {
@@ -66,17 +82,6 @@ export class Panel {
             }
             return Clutter.EVENT_PROPAGATE;
         });
-    }
-
-    // Geometry-based, not actor-identity-based: while Main.pushModal()'s
-    // grab is active, event.get_source() reports the grabbed actor itself
-    // for clicks anywhere on screen, not the actor actually under the
-    // pointer, so it can't distinguish an outside click from an inside one.
-    _pointInsidePanel(px, py) {
-        if (!this.actor)
-            return false;
-        return px >= this.actor.x && px <= this.actor.x + this.actor.width &&
-            py >= this.actor.y && py <= this.actor.y + this.actor.height;
     }
 
     _populate(box) {
@@ -128,10 +133,6 @@ export class Panel {
     close() {
         if (!this.isOpen)
             return;
-        if (this._stageButtonId) {
-            global.stage.disconnect(this._stageButtonId);
-            this._stageButtonId = null;
-        }
         if (this._stageKeyId) {
             global.stage.disconnect(this._stageKeyId);
             this._stageKeyId = null;
@@ -143,6 +144,7 @@ export class Panel {
         Main.layoutManager.removeChrome(this.actor);
         this.actor.destroy();
         this.actor = null;
+        this._content = null;
         this.onClose?.();
     }
 
