@@ -54,8 +54,8 @@ export class Panel {
 
         this._grab = Main.pushModal(this.actor, {actionMode: Shell.ActionMode.POPUP});
         this._stageButtonId = global.stage.connect('button-press-event', (actor, event) => {
-            const target = event.get_source();
-            if (!this._actorContains(this.actor, target))
+            const [px, py] = event.get_coords();
+            if (!this._pointInsidePanel(px, py))
                 this.close();
             return Clutter.EVENT_PROPAGATE;
         });
@@ -68,14 +68,15 @@ export class Panel {
         });
     }
 
-    _actorContains(ancestor, actor) {
-        let node = actor;
-        while (node) {
-            if (node === ancestor)
-                return true;
-            node = node.get_parent();
-        }
-        return false;
+    // Geometry-based, not actor-identity-based: while Main.pushModal()'s
+    // grab is active, event.get_source() reports the grabbed actor itself
+    // for clicks anywhere on screen, not the actor actually under the
+    // pointer, so it can't distinguish an outside click from an inside one.
+    _pointInsidePanel(px, py) {
+        if (!this.actor)
+            return false;
+        return px >= this.actor.x && px <= this.actor.x + this.actor.width &&
+            py >= this.actor.y && py <= this.actor.y + this.actor.height;
     }
 
     _populate(box) {
