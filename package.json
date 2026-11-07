@@ -1,0 +1,11 @@
+{
+  "name": "paperweight-putty",
+  "version": "0.1.0",
+  "description": "A floating, draggable, collapsible Node that replaces Ubuntu Dock with a tap-to-expand app launcher panel.",
+  "type": "module",
+  "private": true,
+  "license": "GPL-2.0-or-later",
+  "scripts": {
+    "test": "node --test"
+  }
+}

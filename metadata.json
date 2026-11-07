@@ -1,0 +1,8 @@
+{
+  "uuid": "putty@paperweighthq.com",
+  "name": "Putty",
+  "description": "Paperweight: Putty — a floating, draggable, collapsible Node that replaces Ubuntu Dock with a tap-to-expand app launcher panel.",
+  "url": "https://github.com/bud-diaz/paperweight-putty",
+  "shell-version": ["50"],
+  "settings-schema": "org.gnome.shell.extensions.putty"
+}

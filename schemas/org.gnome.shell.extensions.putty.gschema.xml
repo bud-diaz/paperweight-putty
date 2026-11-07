@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="putty">
+  <schema id="org.gnome.shell.extensions.putty" path="/org/gnome/shell/extensions/putty/">
+    <key name="node-position-x" type="d">
+      <default>0.92</default>
+      <summary>Node x position</summary>
+      <description>Node's x position, normalized as a 0..1 fraction of its monitor's work-area width.</description>
+    </key>
+    <key name="node-position-y" type="d">
+      <default>0.08</default>
+      <summary>Node y position</summary>
+      <description>Node's y position, normalized as a 0..1 fraction of its monitor's work-area height.</description>
+    </key>
+    <key name="node-monitor-connector" type="s">
+      <default>""</default>
+      <summary>Monitor connector the Node last lived on</summary>
+      <description>Stable monitor connector name (e.g. eDP-1, DP-2), not a numeric monitor index, since indices are not stable across reconnects.</description>
+    </key>
+    <key name="disabled-ubuntu-dock" type="b">
+      <default>false</default>
+      <summary>Whether this extension disabled Ubuntu Dock</summary>
+      <description>True iff this extension is the one that turned ubuntu-dock@ubuntu.com off, and is therefore responsible for turning it back on when this extension is disabled.</description>
+    </key>
+  </schema>
+</schemalist>

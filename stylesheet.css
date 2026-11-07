@@ -1,0 +1,29 @@
+.putty-button {
+    border-radius: 9999px;
+    background-color: rgba(40, 40, 40, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.putty-button:hover {
+    background-color: rgba(60, 60, 60, 0.9);
+}
+
+.putty-panel-bin {
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.putty-row {
+    spacing: 10px;
+    padding: 6px 10px;
+}
+
+.putty-row-label {
+    font-size: 1em;
+}
+
+.putty-empty {
+    padding: 12px;
+    opacity: 0.7;
+}
