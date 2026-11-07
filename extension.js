@@ -1,4 +1,3 @@
-import Gio from 'gi://Gio';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
@@ -9,22 +8,14 @@ import {planEnableAction, planDisableAction} from './dockOwnership.js';
 
 const UBUNTU_DOCK_UUID = 'ubuntu-dock@ubuntu.com';
 
-function runGnomeExtensions(args) {
-    try {
-        const proc = Gio.Subprocess.new(
-            ['gnome-extensions', ...args],
-            Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE);
-        const [, stdout] = proc.communicate_utf8(null, null);
-        return stdout ?? '';
-    } catch (error) {
-        console.error('[Putty] gnome-extensions command failed:', args, error);
-        return '';
-    }
-}
-
-function isExtensionEnabled(uuid) {
-    const out = runGnomeExtensions(['list', '--enabled']);
-    return out.split('\n').map(l => l.trim()).includes(uuid);
+// In-process, not a `gnome-extensions` subprocess: enableExtension()/
+// disableExtension() just flip entries in the `enabled-extensions`/
+// `disabled-extensions` string-array keys on `global.settings` (confirmed
+// by reading ui/extensionSystem.js directly). Shelling out would risk
+// blocking GNOME Shell's single-threaded main loop on a subprocess that
+// itself needs that same main loop (via D-Bus) to answer.
+function isUbuntuDockEnabled() {
+    return global.settings.get_strv('enabled-extensions').includes(UBUNTU_DOCK_UUID);
 }
 
 export default class DockNodeExtension extends Extension {
@@ -159,11 +150,10 @@ export default class DockNodeExtension extends Extension {
     }
 
     _applyUbuntuDockOwnershipOnEnable() {
-        const isEnabled = isExtensionEnabled(UBUNTU_DOCK_UUID);
-        const plan = planEnableAction(isEnabled);
+        const plan = planEnableAction(isUbuntuDockEnabled());
         this._settings?.set_boolean('disabled-ubuntu-dock', plan.newMarkerValue);
         if (plan.shouldDisableUbuntuDock)
-            runGnomeExtensions(['disable', UBUNTU_DOCK_UUID]);
+            Main.extensionManager.disableExtension(UBUNTU_DOCK_UUID);
     }
 
     _applyUbuntuDockOwnershipOnDisable() {
@@ -171,6 +161,6 @@ export default class DockNodeExtension extends Extension {
         const plan = planDisableAction(marker);
         this._settings?.set_boolean('disabled-ubuntu-dock', plan.newMarkerValue);
         if (plan.shouldEnableUbuntuDock)
-            runGnomeExtensions(['enable', UBUNTU_DOCK_UUID]);
+            Main.extensionManager.enableExtension(UBUNTU_DOCK_UUID);
     }
 }
