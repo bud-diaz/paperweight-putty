@@ -9,16 +9,21 @@ import {planEnableAction, planDisableAction} from './dockOwnership.js';
 
 const UBUNTU_DOCK_UUID = 'ubuntu-dock@ubuntu.com';
 
-async function runGnomeExtensions(args) {
-    const proc = Gio.Subprocess.new(
-        ['gnome-extensions', ...args],
-        Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE);
-    const [stdout] = await proc.communicate_utf8_async(null, null);
-    return stdout ?? '';
+function runGnomeExtensions(args) {
+    try {
+        const proc = Gio.Subprocess.new(
+            ['gnome-extensions', ...args],
+            Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE);
+        const [, stdout] = proc.communicate_utf8(null, null);
+        return stdout ?? '';
+    } catch (error) {
+        console.error('[Putty] gnome-extensions command failed:', args, error);
+        return '';
+    }
 }
 
-async function isExtensionEnabled(uuid) {
-    const out = await runGnomeExtensions(['list', '--enabled']);
+function isExtensionEnabled(uuid) {
+    const out = runGnomeExtensions(['list', '--enabled']);
     return out.split('\n').map(l => l.trim()).includes(uuid);
 }
 
@@ -154,23 +159,18 @@ export default class DockNodeExtension extends Extension {
     }
 
     _applyUbuntuDockOwnershipOnEnable() {
-        isExtensionEnabled(UBUNTU_DOCK_UUID).then(isEnabled => {
-            const plan = planEnableAction(isEnabled);
-            this._settings?.set_boolean('disabled-ubuntu-dock', plan.newMarkerValue);
-            if (plan.shouldDisableUbuntuDock) {
-                runGnomeExtensions(['disable', UBUNTU_DOCK_UUID]).catch(error =>
-                    console.error('[Putty] failed to disable Ubuntu Dock', error));
-            }
-        }).catch(error => console.error('[Putty] failed to check Ubuntu Dock state', error));
+        const isEnabled = isExtensionEnabled(UBUNTU_DOCK_UUID);
+        const plan = planEnableAction(isEnabled);
+        this._settings?.set_boolean('disabled-ubuntu-dock', plan.newMarkerValue);
+        if (plan.shouldDisableUbuntuDock)
+            runGnomeExtensions(['disable', UBUNTU_DOCK_UUID]);
     }
 
     _applyUbuntuDockOwnershipOnDisable() {
         const marker = this._settings?.get_boolean('disabled-ubuntu-dock') ?? false;
         const plan = planDisableAction(marker);
         this._settings?.set_boolean('disabled-ubuntu-dock', plan.newMarkerValue);
-        if (plan.shouldEnableUbuntuDock) {
-            runGnomeExtensions(['enable', UBUNTU_DOCK_UUID]).catch(error =>
-                console.error('[Putty] failed to re-enable Ubuntu Dock', error));
-        }
+        if (plan.shouldEnableUbuntuDock)
+            runGnomeExtensions(['enable', UBUNTU_DOCK_UUID]);
     }
 }
