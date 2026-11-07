@@ -30,6 +30,7 @@ export default class DockNodeExtension extends Extension {
         this._node = new Node({
             onActivate: () => this._togglePanel(),
             onDragEnd: (x, y) => this._onDragEnd(x, y),
+            getWorkArea: () => this._currentWorkArea(),
         });
         Main.layoutManager.addChrome(this._node.actor, {
             affectsStruts: false,

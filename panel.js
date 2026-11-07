@@ -41,7 +41,7 @@ export class Panel {
             child: box,
             reactive: true,
         });
-        Main.layoutManager.addChrome(this.actor, {affectsInputRegion: true});
+        Main.layoutManager.addChrome(this.actor);
 
         const [, naturalWidth] = box.get_preferred_width(-1);
         const width = Math.max(naturalWidth, PANEL_MIN_WIDTH);

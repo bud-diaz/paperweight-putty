@@ -1,6 +1,6 @@
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
-import {DRAG_THRESHOLD_PX, NODE_SIZE} from './nodePosition.js';
+import {DRAG_THRESHOLD_PX, NODE_SIZE, clampPosition} from './nodePosition.js';
 
 // The floating circular button. Plain (non-GObject-registered) wrapper
 // class, matching this user's existing gnomad-dock-placement@gnomad style
@@ -10,9 +10,10 @@ import {DRAG_THRESHOLD_PX, NODE_SIZE} from './nodePosition.js';
 // being delivered to this actor even after the pointer leaves its bounds,
 // so no explicit stage grab is needed for a same-actor drag.
 export class Node {
-    constructor({onActivate, onDragEnd}) {
+    constructor({onActivate, onDragEnd, getWorkArea}) {
         this.onActivate = onActivate;
         this.onDragEnd = onDragEnd;
+        this.getWorkArea = getWorkArea;
 
         this.actor = new St.Bin({
             style_class: 'putty-button',
@@ -44,6 +45,7 @@ export class Node {
             return Clutter.EVENT_PROPAGATE;
         this._pressPos = event.get_coords();
         this._startActorPos = [this.actor.x, this.actor.y];
+        this._dragWorkArea = this.getWorkArea?.();
         this._dragging = false;
         return Clutter.EVENT_STOP;
     }
@@ -59,7 +61,17 @@ export class Node {
             this._dragging = true;
         if (this._dragging) {
             const [startActorX, startActorY] = this._startActorPos;
-            this.actor.set_position(startActorX + dx, startActorY + dy);
+            const rawX = startActorX + dx;
+            const rawY = startActorY + dy;
+            if (this._dragWorkArea) {
+                const clamped = clampPosition({
+                    x: rawX, y: rawY, width: NODE_SIZE, height: NODE_SIZE,
+                    workArea: this._dragWorkArea,
+                });
+                this.actor.set_position(clamped.x, clamped.y);
+            } else {
+                this.actor.set_position(rawX, rawY);
+            }
         }
         return Clutter.EVENT_STOP;
     }
