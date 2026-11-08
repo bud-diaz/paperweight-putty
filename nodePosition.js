@@ -1,9 +1,17 @@
 // Pure geometry helpers: no GNOME/GJS imports, unit-testable with plain `node --test`.
 
 export const DRAG_THRESHOLD_PX = 8;
-// Matches the node-default.svg canvas (putty-organic.md §3.1).
+// These match the generated SVG canvases exactly (node-default.svg /
+// panel-default.svg, see scripts/generate-blob-svgs.mjs) -- the panel's
+// St.Bin is sized to PANEL_WIDTH/PANEL_HEIGHT rather than derived from its
+// content, because St's background-image doesn't reliably stretch to an
+// arbitrary allocated size; the image renders at its own intrinsic
+// dimensions regardless, so the container has to match it instead of the
+// other way around.
 export const NODE_WIDTH = 64;
 export const NODE_HEIGHT = 60;
+export const PANEL_WIDTH = 450;
+export const PANEL_HEIGHT = 230;
 export const NODE_MARGIN = 12;
 export const PANEL_MARGIN = 8;
 

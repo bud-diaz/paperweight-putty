@@ -15,6 +15,7 @@ import {dirname, join} from 'node:path';
 import {
     PUTTY_BASE, PUTTY_HIGHLIGHT, PUTTY_SHADOW, PUTTY_DEEP_SHADOW,
 } from '../theme.js';
+import {NODE_WIDTH, NODE_HEIGHT, PANEL_WIDTH, PANEL_HEIGHT} from '../nodePosition.js';
 
 const ASSETS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets');
 
@@ -57,8 +58,8 @@ function renderBlob({width, height, circles, depressions = [], gradient}) {
 }
 
 const node = renderBlob({
-    width: 64,
-    height: 60,
+    width: NODE_WIDTH,
+    height: NODE_HEIGHT,
     gradient: {cx: '38%', cy: '32%', r: '75%', gooBlur: 4, shadowDy: 3, shadowBlur: 3},
     circles: [
         {x: 32, y: 31, r: 21},
@@ -72,8 +73,8 @@ const node = renderBlob({
 });
 
 const panel = renderBlob({
-    width: 450,
-    height: 230,
+    width: PANEL_WIDTH,
+    height: PANEL_HEIGHT,
     gradient: {cx: '32%', cy: '22%', r: '90%', gooBlur: 10, shadowDy: 5, shadowBlur: 6},
     circles: [
         // Wide, flat base capsule covering the full content area.

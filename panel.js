@@ -3,9 +3,8 @@ import Clutter from 'gi://Clutter';
 import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
-import {computePanelPlacement} from './nodePosition.js';
+import {computePanelPlacement, PANEL_WIDTH, PANEL_HEIGHT} from './nodePosition.js';
 
-const PANEL_MIN_WIDTH = 240;
 const ICON_SIZE = 40;
 
 // Hand-rolled expand panel (not PopupMenu.PopupMenu) so we control the
@@ -66,10 +65,18 @@ export class Panel {
         this.actor.add_child(this._content);
         Main.layoutManager.addChrome(this.actor);
 
+        // Size to the background SVG's own canvas, not the content's
+        // natural size: St's background-image doesn't reliably stretch to
+        // an arbitrary allocated size, so the container has to match the
+        // image's fixed dimensions for the two to actually line up. Only
+        // grow beyond it if content genuinely needs more room (accepting
+        // that the image won't stretch to match in that case -- a known
+        // limitation, fine for now since this layout comfortably fits the
+        // design target).
         const [, naturalWidth] = box.get_preferred_width(-1);
-        const width = Math.max(naturalWidth, PANEL_MIN_WIDTH);
+        const width = Math.max(naturalWidth, PANEL_WIDTH);
         const [, naturalHeight] = box.get_preferred_height(width);
-        const panelSize = {width, height: naturalHeight};
+        const panelSize = {width, height: Math.max(naturalHeight, PANEL_HEIGHT)};
 
         const placement = computePanelPlacement({nodeRect, panelSize, workArea});
         this._content.set_position(Math.round(placement.x), Math.round(placement.y));
