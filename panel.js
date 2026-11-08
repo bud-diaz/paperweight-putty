@@ -48,6 +48,12 @@ export class Panel {
             style_class: 'putty-panel-bin',
             child: box,
             reactive: true,
+            // The Bin is sized to the organic background's full canvas
+            // (see below), which is usually larger than the content's own
+            // natural size -- center the content within it rather than
+            // defaulting to a top-left-anchored child.
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
         });
         // Absorb clicks that land on the panel's own padding/background
         // (not on a specific row) so they don't bubble up to the root and
