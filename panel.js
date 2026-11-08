@@ -7,7 +7,6 @@ import {computePanelPlacement} from './nodePosition.js';
 
 const PANEL_MIN_WIDTH = 240;
 const ICON_SIZE = 40;
-const ROW_HEIGHT = 48;
 
 // Hand-rolled expand panel (not PopupMenu.PopupMenu) so we control the
 // 4-direction flip ourselves via nodePosition.computePanelPlacement().
@@ -41,12 +40,12 @@ export class Panel {
 
         const box = new St.BoxLayout({
             vertical: true,
-            style_class: 'popup-menu-content putty-panel',
+            style_class: 'putty-panel',
         });
         this._populate(box);
 
         this._content = new St.Bin({
-            style_class: 'popup-menu-boxpointer putty-panel-bin',
+            style_class: 'putty-panel-bin',
             child: box,
             reactive: true,
         });
@@ -84,50 +83,108 @@ export class Panel {
         });
     }
 
+    // Favorites render as icon-over-label tiles in one row; running-only
+    // apps render beneath, prefixed by a "Running" label, as icon+dot
+    // tiles with no name -- matching putty-organic.md's supplied mockup.
     _populate(box) {
         const favoriteMap = AppFavorites.getAppFavorites().getFavoriteMap();
         const running = Shell.AppSystem.get_default().get_running();
 
         const seen = new Set();
-        const apps = [];
+        const favorites = [];
         for (const id in favoriteMap) {
-            apps.push(favoriteMap[id]);
+            favorites.push(favoriteMap[id]);
             seen.add(id);
         }
+        const runningOnly = [];
         for (const app of running) {
             if (!seen.has(app.get_id())) {
-                apps.push(app);
+                runningOnly.push(app);
                 seen.add(app.get_id());
             }
         }
 
-        if (apps.length === 0) {
+        if (favorites.length === 0 && runningOnly.length === 0) {
             box.add_child(new St.Label({text: 'No apps', style_class: 'putty-empty'}));
             return;
         }
 
-        for (const app of apps)
-            box.add_child(this._createRow(app));
+        const favoritesRow = new St.BoxLayout({style_class: 'putty-favorites-row'});
+        for (const app of favorites)
+            favoritesRow.add_child(this._createAppTile(app));
+        favoritesRow.add_child(this._createAllAppsTile());
+        box.add_child(favoritesRow);
+
+        if (runningOnly.length > 0) {
+            const runningRow = new St.BoxLayout({style_class: 'putty-running-row'});
+            runningRow.add_child(new St.Label({
+                text: 'Running',
+                y_align: Clutter.ActorAlign.CENTER,
+                style_class: 'putty-running-label',
+            }));
+            for (const app of runningOnly)
+                runningRow.add_child(this._createRunningTile(app));
+            box.add_child(runningRow);
+        }
     }
 
-    _createRow(app) {
-        const row = new St.BoxLayout({
-            style_class: 'popup-menu-item putty-row',
+    _activateAndClose(action) {
+        action();
+        this.close();
+        return Clutter.EVENT_STOP;
+    }
+
+    _createAppTile(app) {
+        const tile = new St.BoxLayout({
+            vertical: true,
             reactive: true,
-            height: ROW_HEIGHT,
+            style_class: 'putty-app-tile',
         });
-        row.add_child(app.create_icon_texture(ICON_SIZE));
-        row.add_child(new St.Label({
+        tile.add_child(app.create_icon_texture(ICON_SIZE));
+        tile.add_child(new St.Label({
             text: app.get_name(),
-            y_align: Clutter.ActorAlign.CENTER,
-            style_class: 'putty-row-label',
+            x_align: Clutter.ActorAlign.CENTER,
+            style_class: 'putty-app-tile-label',
         }));
-        row.connect('button-press-event', () => {
-            app.activate();
-            this.close();
-            return Clutter.EVENT_STOP;
+        tile.connect('button-press-event',
+            () => this._activateAndClose(() => app.activate()));
+        return tile;
+    }
+
+    _createRunningTile(app) {
+        const tile = new St.BoxLayout({
+            vertical: true,
+            reactive: true,
+            style_class: 'putty-running-tile',
         });
-        return row;
+        tile.add_child(app.create_icon_texture(ICON_SIZE));
+        tile.add_child(new St.Widget({
+            x_align: Clutter.ActorAlign.CENTER,
+            style_class: 'putty-running-indicator',
+        }));
+        tile.connect('button-press-event',
+            () => this._activateAndClose(() => app.activate()));
+        return tile;
+    }
+
+    _createAllAppsTile() {
+        const tile = new St.BoxLayout({
+            vertical: true,
+            reactive: true,
+            style_class: 'putty-app-tile',
+        });
+        tile.add_child(new St.Icon({
+            icon_name: 'view-app-grid-symbolic',
+            icon_size: ICON_SIZE,
+        }));
+        tile.add_child(new St.Label({
+            text: 'Show Apps',
+            x_align: Clutter.ActorAlign.CENTER,
+            style_class: 'putty-app-tile-label',
+        }));
+        tile.connect('button-press-event',
+            () => this._activateAndClose(() => Main.overview.showApps()));
+        return tile;
     }
 
     close() {

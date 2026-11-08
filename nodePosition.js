@@ -1,7 +1,9 @@
 // Pure geometry helpers: no GNOME/GJS imports, unit-testable with plain `node --test`.
 
 export const DRAG_THRESHOLD_PX = 8;
-export const NODE_SIZE = 56;
+// Matches the node-default.svg canvas (putty-organic.md §3.1).
+export const NODE_WIDTH = 64;
+export const NODE_HEIGHT = 60;
 export const NODE_MARGIN = 12;
 export const PANEL_MARGIN = 8;
 

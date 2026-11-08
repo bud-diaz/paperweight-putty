@@ -3,7 +3,7 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import {Node} from './node.js';
 import {Panel} from './panel.js';
-import {clampPosition, toNormalized, fromNormalized, NODE_SIZE} from './nodePosition.js';
+import {clampPosition, toNormalized, fromNormalized, NODE_WIDTH, NODE_HEIGHT} from './nodePosition.js';
 import {planEnableAction, planDisableAction} from './dockOwnership.js';
 
 const UBUNTU_DOCK_UUID = 'ubuntu-dock@ubuntu.com';
@@ -131,7 +131,7 @@ export default class DockNodeExtension extends Extension {
         const fy = this._settings.get_double('node-position-y');
         const raw = fromNormalized({fx, fy, workArea});
         const clamped = clampPosition({
-            x: raw.x, y: raw.y, width: NODE_SIZE, height: NODE_SIZE, workArea,
+            x: raw.x, y: raw.y, width: NODE_WIDTH, height: NODE_HEIGHT, workArea,
         });
         this._node.actor.set_position(Math.round(clamped.x), Math.round(clamped.y));
     }
@@ -140,7 +140,7 @@ export default class DockNodeExtension extends Extension {
         const index = this._currentMonitorIndex();
         const workArea = Main.layoutManager.getWorkAreaForMonitor(index);
         const clamped = clampPosition({
-            x, y, width: NODE_SIZE, height: NODE_SIZE, workArea,
+            x, y, width: NODE_WIDTH, height: NODE_HEIGHT, workArea,
         });
         this._node.actor.set_position(Math.round(clamped.x), Math.round(clamped.y));
 
