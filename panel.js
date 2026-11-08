@@ -109,11 +109,25 @@ export class Panel {
             return;
         }
 
-        const favoritesRow = new St.BoxLayout({style_class: 'putty-favorites-row'});
-        for (const app of favorites)
-            favoritesRow.add_child(this._createAppTile(app));
-        favoritesRow.add_child(this._createAllAppsTile());
-        box.add_child(favoritesRow);
+        // Two rows, not one long row: keeps the content area closer to the
+        // panel background's fixed aspect ratio instead of growing wider
+        // than the organic silhouette can stretch to cover.
+        const favoriteTiles = favorites.map(app => this._createAppTile(app));
+        favoriteTiles.push(this._createAllAppsTile());
+        const midpoint = Math.ceil(favoriteTiles.length / 2);
+
+        const firstRow = new St.BoxLayout({style_class: 'putty-favorites-row'});
+        for (const tile of favoriteTiles.slice(0, midpoint))
+            firstRow.add_child(tile);
+        box.add_child(firstRow);
+
+        const secondRowTiles = favoriteTiles.slice(midpoint);
+        if (secondRowTiles.length > 0) {
+            const secondRow = new St.BoxLayout({style_class: 'putty-favorites-row'});
+            for (const tile of secondRowTiles)
+                secondRow.add_child(tile);
+            box.add_child(secondRow);
+        }
 
         if (runningOnly.length > 0) {
             const runningRow = new St.BoxLayout({style_class: 'putty-running-row'});
