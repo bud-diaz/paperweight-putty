@@ -77,22 +77,26 @@ const panel = renderBlob({
     height: PANEL_HEIGHT,
     gradient: {cx: '32%', cy: '22%', r: '90%', gooBlur: 10, shadowDy: 5, shadowBlur: 6},
     circles: [
-        // Wide, flat base capsule covering the full content area.
-        {x: 95, y: 150, r: 100},
-        {x: 225, y: 140, r: 108},
-        {x: 355, y: 150, r: 100},
+        // Wide, flat base capsule covering the full content area. Shifted
+        // up from the first pass so the shape doesn't hard-clip against
+        // the canvas bottom with zero padding while the top has ~45px --
+        // that asymmetry was making centered content look top-anchored
+        // relative to the visible blob, not the canvas.
+        {x: 95, y: 120, r: 100},
+        {x: 225, y: 110, r: 108},
+        {x: 355, y: 120, r: 100},
         // Gentle lobes along the top edge -- small radius, mostly
         // overlapping the base, so they read as subtle waves rather
         // than distinct domes.
-        {x: 55, y: 95, r: 42},
-        {x: 145, y: 85, r: 40},
-        {x: 225, y: 90, r: 38},
-        {x: 305, y: 85, r: 40},
-        {x: 395, y: 95, r: 42},
+        {x: 55, y: 65, r: 42},
+        {x: 145, y: 55, r: 40},
+        {x: 225, y: 60, r: 38},
+        {x: 305, y: 55, r: 40},
+        {x: 395, y: 65, r: 42},
     ],
     depressions: [
-        {x: 150, y: 165, rx: 12, ry: 6},
-        {x: 300, y: 170, rx: 10, ry: 5},
+        {x: 150, y: 135, rx: 12, ry: 6},
+        {x: 300, y: 140, rx: 10, ry: 5},
     ],
 });
 
