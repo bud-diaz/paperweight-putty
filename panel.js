@@ -37,9 +37,14 @@ export class Panel {
         if (this.isOpen)
             return;
 
+        // St.Bin reads allocation policy from its child. Keep this content
+        // group at its preferred size and center that group within the fixed
+        // 450×230 panel canvas.
         const box = new St.BoxLayout({
             vertical: true,
             style_class: 'putty-panel',
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
         });
         this._populate(box);
 
@@ -47,12 +52,6 @@ export class Panel {
             style_class: 'putty-panel-bin',
             child: box,
             reactive: true,
-            // The Bin is sized to the organic background's full canvas
-            // (see below), which is usually larger than the content's own
-            // natural size -- center the content within it rather than
-            // defaulting to a top-left-anchored child.
-            x_align: Clutter.ActorAlign.CENTER,
-            y_align: Clutter.ActorAlign.CENTER,
         });
         // Absorb clicks that land on the panel's own padding/background
         // (not on a specific row) so they don't bubble up to the root and
@@ -132,14 +131,14 @@ export class Panel {
         const firstRow = new St.BoxLayout({style_class: 'putty-favorites-row'});
         for (const tile of favoriteTiles.slice(0, midpoint))
             firstRow.add_child(tile);
-        box.add_child(firstRow);
+        this._addCenteredRow(box, firstRow);
 
         const secondRowTiles = favoriteTiles.slice(midpoint);
         if (secondRowTiles.length > 0) {
             const secondRow = new St.BoxLayout({style_class: 'putty-favorites-row'});
             for (const tile of secondRowTiles)
                 secondRow.add_child(tile);
-            box.add_child(secondRow);
+            this._addCenteredRow(box, secondRow);
         }
 
         if (runningOnly.length > 0) {
@@ -151,8 +150,18 @@ export class Panel {
             }));
             for (const app of runningOnly)
                 runningRow.add_child(this._createRunningTile(app));
-            box.add_child(runningRow);
+            this._addCenteredRow(box, runningRow);
         }
+    }
+
+    // The wrapper expands to the width of the widest row. Its child row owns
+    // the alignment policy, so incomplete rows remain centered within it.
+    _addCenteredRow(box, row) {
+        row.x_align = Clutter.ActorAlign.CENTER;
+        box.add_child(new St.Bin({
+            child: row,
+            x_expand: true,
+        }));
     }
 
     _activateAndClose(action) {

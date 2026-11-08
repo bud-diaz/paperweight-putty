@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {clampPosition, toNormalized, fromNormalized, computePanelPlacement} from '../nodePosition.js';
 
 const workArea = {x: 0, y: 0, width: 1920, height: 1080};
@@ -19,6 +20,20 @@ test('toNormalized/fromNormalized round-trip', () => {
     assert.deepEqual(normalized, {fx: 0.5, fy: 0.5});
     const restored = fromNormalized({...normalized, workArea});
     assert.deepEqual(restored, {x: 960, y: 540});
+});
+
+test('app content uses child alignment inside the panel bin', () => {
+    const panelSource = readFileSync(new URL('../panel.js', import.meta.url), 'utf8');
+
+    // St.Bin reads alignment from its child (the panel box), not itself.
+    assert.match(panelSource, /const box = new St\.BoxLayout\(\{\s*vertical: true,\s*style_class: 'putty-panel',\s*x_align: Clutter\.ActorAlign\.CENTER,\s*y_align: Clutter\.ActorAlign\.CENTER,\s*\}\)/);
+});
+
+test('shorter app rows center themselves inside their full-width wrappers', () => {
+    const panelSource = readFileSync(new URL('../panel.js', import.meta.url), 'utf8');
+
+    assert.match(panelSource, /row\.x_align\s*=\s*Clutter\.ActorAlign\.CENTER/);
+    assert.match(panelSource, /x_expand:\s*true/);
 });
 
 test('panel placement flips left+clamped when Node is near the top-right corner', () => {
