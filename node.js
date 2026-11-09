@@ -278,7 +278,7 @@ export class Node {
             this._setPose('neutral');
             this._applyTransform({scaleX: this.actor.hover ? 1.025 : 1, scaleY: this.actor.hover ? 1.025 : 1},
                 motionDuration(this.motionPolicy, 100, 65));
-            this.onActivate?.();
+            this.onActivate?.({focusFirst: false});
         }
         return Clutter.EVENT_STOP;
     }
@@ -287,7 +287,7 @@ export class Node {
         const symbol = event.get_key_symbol();
         if (symbol !== Clutter.KEY_Return && symbol !== Clutter.KEY_KP_Enter && symbol !== Clutter.KEY_space)
             return Clutter.EVENT_PROPAGATE;
-        this.onActivate?.();
+        this.onActivate?.({focusFirst: true});
         return Clutter.EVENT_STOP;
     }
 

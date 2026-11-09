@@ -34,7 +34,7 @@ export default class DockNodeExtension extends Extension {
         const appearance = this._readAppearance();
 
         this._node = new Node({
-            onActivate: () => this._togglePanel(),
+            onActivate: options => this._togglePanel(options),
             onDragEnd: (x, y) => this._onDragEnd(x, y),
             getWorkArea: () => this._currentWorkArea(),
             ...appearance,
@@ -106,16 +106,16 @@ export default class DockNodeExtension extends Extension {
         this._settings = null;
     }
 
-    _togglePanel() {
+    _togglePanel({focusFirst = false} = {}) {
         if (this._panel.isOpen)
             this._closePanel();
         else
-            this._openPanel();
+            this._openPanel({focusFirst});
     }
 
-    _openPanel() {
+    _openPanel({focusFirst = false} = {}) {
         const workArea = this._currentWorkArea();
-        this._panel.open(this._node.getRect(), workArea);
+        this._panel.open(this._node.getRect(), workArea, {focusFirst});
     }
 
     _closePanel() {

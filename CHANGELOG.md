@@ -9,6 +9,13 @@
 - Added GTK4/Libadwaita preferences and a system-wide GNOME Favorites editor.
 - Added keyboard navigation, focus indicators, scrollable large app sets, and
   synchronous modal/transition teardown.
+- Fixed panel-level press interception that prevented application buttons from
+  activating on Shell 50, and only auto-focus the first tile for keyboard opens.
+- Restored outside-click dismissal for modal grabs that report an underlying
+  desktop source, and initialize reveal transforms before painting to avoid a
+  panel-opening flash.
+- Use direct primary-press and explicit keyboard activation for panel controls,
+  releasing the modal before launching Shell actions.
 - Expanded pure unit coverage and CI validation for schemas and generated SVGs.
 
 ## 0.1.0

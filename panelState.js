@@ -9,3 +9,7 @@ export function nextPanelState(state, event) {
         return 'closing';
     return state;
 }
+
+export function panelPressDisposition(sourceIsInsidePanel) {
+    return sourceIsInsidePanel ? 'propagate' : 'dismiss';
+}

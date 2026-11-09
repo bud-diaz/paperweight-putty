@@ -9,7 +9,7 @@ import {computePanelPlacement, PANEL_WIDTH, PANEL_HEIGHT} from './nodePosition.j
 import {normalizePaletteName} from './theme.js';
 import {resolveMotionPolicy, motionDuration} from './motion.js';
 import {deduplicateRunning} from './favorites.js';
-import {nextPanelState} from './panelState.js';
+import {nextPanelState, panelPressDisposition} from './panelState.js';
 
 const ICON_SIZE = 40;
 const TILES_PER_ROW = 5;
@@ -63,7 +63,7 @@ export class Panel {
         }
     }
 
-    open(nodeRect, workArea) {
+    open(nodeRect, workArea, {focusFirst = false} = {}) {
         if (this._state === 'closing')
             this.forceClose();
         if (this.isOpen)
@@ -97,7 +97,6 @@ export class Panel {
             height: PANEL_HEIGHT,
         });
         this._panelGroup.set_position(Math.round(placement.x), Math.round(placement.y));
-        this._panelGroup.connect('button-press-event', () => Clutter.EVENT_STOP);
         this.actor.add_child(this._panelGroup);
 
         this._material = new St.Widget({
@@ -115,12 +114,23 @@ export class Panel {
         this._panelGroup.add_child(this._contentLayer);
         this._populateContent();
         this._applyPaletteClasses();
+        this._prepareOpenVisualState();
 
         Main.layoutManager.addChrome(this.actor);
         this._grab = Main.pushModal(this.actor, {actionMode: Shell.ActionMode.POPUP});
-        this.actor.connect('button-press-event', () => {
-            this.close();
-            return Clutter.EVENT_STOP;
+        this.actor.connect('button-press-event', (actor, event) => {
+            const source = event.get_source();
+            const sourceIsInsidePanel = source === this._panelGroup ||
+                (source !== null && this._panelGroup.contains(source));
+            const disposition = panelPressDisposition(sourceIsInsidePanel);
+            if (disposition === 'dismiss') {
+                this.close();
+                return Clutter.EVENT_STOP;
+            }
+            // Child buttons must receive both press and release. Stopping a
+            // bubbled press on a parent prevents St.Button from completing
+            // its clicked state on GNOME Shell 50.
+            return Clutter.EVENT_PROPAGATE;
         });
         this._stageKeyId = global.stage.connect('key-press-event', (actor, event) => {
             if (event.get_key_symbol() === Clutter.KEY_Escape) {
@@ -131,7 +141,8 @@ export class Panel {
         });
 
         this._animateOpen();
-        this._firstFocusable?.grab_key_focus();
+        if (focusFirst)
+            this._firstFocusable?.grab_key_focus();
     }
 
     _applyPaletteClasses() {
@@ -172,7 +183,7 @@ export class Panel {
         });
         gear.set_position(PANEL_WIDTH - 64, 22);
         gear.set_size(36, 36);
-        gear.connect('clicked', () => {
+        this._connectDirectActivation(gear, () => {
             // Preferences run out of process. Release the Shell modal before
             // invoking Extension.openPreferences().
             this.forceClose();
@@ -261,10 +272,7 @@ export class Panel {
             accessible_name: name,
             child: content,
         });
-        button.connect('clicked', () => {
-            action();
-            this.close();
-        });
+        this._connectDirectActivation(button, () => this._activateAndClose(action));
         button.connect('enter-event', () => {
             this._animateTile(content, {scale: 1.04, y: -1});
             return Clutter.EVENT_PROPAGATE;
@@ -273,15 +281,35 @@ export class Panel {
             this._animateTile(content, {scale: 1, y: 0});
             return Clutter.EVENT_PROPAGATE;
         });
-        button.connect('button-press-event', () => {
-            this._animateTile(content, {scale: 0.96, y: 1});
-            return Clutter.EVENT_PROPAGATE;
-        });
-        button.connect('button-release-event', () => {
-            this._animateTile(content, {scale: button.hover ? 1.04 : 1, y: button.hover ? -1 : 0});
-            return Clutter.EVENT_PROPAGATE;
-        });
         return button;
+    }
+
+    _connectDirectActivation(button, action) {
+        button.connect('button-press-event', (actor, event) => {
+            if (event.get_button() !== Clutter.BUTTON_PRIMARY)
+                return Clutter.EVENT_PROPAGATE;
+            action();
+            return Clutter.EVENT_STOP;
+        });
+        button.connect('key-press-event', (actor, event) => {
+            const symbol = event.get_key_symbol();
+            if (symbol !== Clutter.KEY_Return && symbol !== Clutter.KEY_KP_Enter &&
+                symbol !== Clutter.KEY_space)
+                return Clutter.EVENT_PROPAGATE;
+            action();
+            return Clutter.EVENT_STOP;
+        });
+    }
+
+    _activateAndClose(action) {
+        if (!this.isOpen)
+            return;
+        // The original live implementation activated on press. Release the
+        // modal synchronously before invoking Shell/App actions so activation
+        // cannot depend on St.Button.clicked surviving ScrollView bubbling or
+        // on a closing animation retaining the grab.
+        this.forceClose();
+        action();
     }
 
     _animateTile(content, {scale, y}) {
@@ -341,12 +369,12 @@ export class Panel {
         return {scale_x: 0.72, scale_y: 0.18};
     }
 
-    _animateOpen() {
-        this._cancelTransitions();
-        const generation = this._transitionGeneration;
+    _prepareOpenVisualState() {
         this._setPanelPivot();
         if (this.motionPolicy === 'off') {
-            this._finishOpening();
+            this._panelGroup.set({scale_x: 1, scale_y: 1, opacity: 255});
+            this._bridge.opacity = 255;
+            this._contentLayer.opacity = 255;
             return;
         }
 
@@ -356,6 +384,16 @@ export class Panel {
         this._panelGroup.set({...initial, opacity: 0});
         this._bridge.opacity = 0;
         this._contentLayer.opacity = 0;
+    }
+
+    _animateOpen() {
+        this._cancelTransitions();
+        const generation = this._transitionGeneration;
+        if (this.motionPolicy === 'off') {
+            this._finishOpening();
+            return;
+        }
+
         this._bridge.ease({
             opacity: 255,
             duration: motionDuration(this.motionPolicy, 150, 80),
@@ -366,9 +404,7 @@ export class Panel {
             scale_y: 1,
             opacity: 255,
             duration: motionDuration(this.motionPolicy, 280, 100),
-            mode: this.motionPolicy === 'full'
-                ? Clutter.AnimationMode.EASE_OUT_BACK
-                : Clutter.AnimationMode.EASE_OUT_QUAD,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             onComplete: () => {
                 if (generation === this._transitionGeneration)
                     this._finishOpening();
