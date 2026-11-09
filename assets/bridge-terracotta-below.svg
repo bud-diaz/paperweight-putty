@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="34" height="28" viewBox="0 0 34 28" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="goo" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8" result="goo"/>
+    </filter>
+    <filter id="dropshadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+    <radialGradient id="puttyGradient" cx="35%" cy="30%" r="90%">
+      <stop offset="0%" stop-color="#E0A087"/>
+      <stop offset="55%" stop-color="#B96850"/>
+      <stop offset="100%" stop-color="#7D4436"/>
+    </radialGradient>
+  </defs>
+  <g filter="url(#dropshadow)"><g filter="url(#goo)" fill="url(#puttyGradient)"><ellipse cx="17" cy="7" rx="12" ry="10"/><ellipse cx="18" cy="14" rx="13" ry="11"/><ellipse cx="17" cy="21" rx="12" ry="10"/></g></g>
+  <g opacity="0.16" fill="#512B24"></g>
+</svg>

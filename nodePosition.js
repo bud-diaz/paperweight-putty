@@ -14,6 +14,11 @@ export const PANEL_WIDTH = 450;
 export const PANEL_HEIGHT = 230;
 export const NODE_MARGIN = 12;
 export const PANEL_MARGIN = 8;
+export const MIN_NODE_HIT_SIZE = 64;
+export const MIN_NODE_SCALE = 0.85;
+export const MAX_NODE_SCALE = 1.5;
+export const BRIDGE_OVERLAP = 10;
+export const BRIDGE_THICKNESS = 34;
 
 export function clampPosition({x, y, width, height, workArea}) {
     const maxX = workArea.x + workArea.width - width;
@@ -35,6 +40,76 @@ export function fromNormalized({fx, fy, workArea}) {
     return {
         x: workArea.x + fx * workArea.width,
         y: workArea.y + fy * workArea.height,
+    };
+}
+
+export function clampNodeScale(scale) {
+    if (!Number.isFinite(scale))
+        return 1;
+    return Math.min(Math.max(scale, MIN_NODE_SCALE), MAX_NODE_SCALE);
+}
+
+// The texture remains at its native 64x60 size and is scaled by Clutter.
+// Only the stable input wrapper changes allocation, so deformation never
+// feeds back into drag coordinates or hit testing.
+export function computeNodeGeometry(scale = 1) {
+    const visualScale = clampNodeScale(scale);
+    const visualWidth = NODE_WIDTH * visualScale;
+    const visualHeight = NODE_HEIGHT * visualScale;
+    const wrapperWidth = Math.max(MIN_NODE_HIT_SIZE, Math.ceil(visualWidth));
+    const wrapperHeight = Math.max(MIN_NODE_HIT_SIZE, Math.ceil(visualHeight));
+    return {
+        scale: visualScale,
+        visualWidth,
+        visualHeight,
+        wrapperWidth,
+        wrapperHeight,
+        visualX: (wrapperWidth - NODE_WIDTH) / 2,
+        visualY: (wrapperHeight - NODE_HEIGHT) / 2,
+    };
+}
+
+export function preserveCenterForResize({x, y, oldWidth, oldHeight, newWidth, newHeight}) {
+    return {
+        x: x + (oldWidth - newWidth) / 2,
+        y: y + (oldHeight - newHeight) / 2,
+    };
+}
+
+function computeBridge({side, nodeRect, panelRect, margin}) {
+    const nodeCenterX = nodeRect.x + nodeRect.width / 2;
+    const nodeCenterY = nodeRect.y + nodeRect.height / 2;
+    const longSize = margin + BRIDGE_OVERLAP * 2;
+
+    if (side === 'right') {
+        return {
+            x: nodeRect.x + nodeRect.width - BRIDGE_OVERLAP,
+            y: nodeCenterY - BRIDGE_THICKNESS / 2,
+            width: longSize,
+            height: BRIDGE_THICKNESS,
+        };
+    }
+    if (side === 'left') {
+        return {
+            x: panelRect.x + panelRect.width - BRIDGE_OVERLAP,
+            y: nodeCenterY - BRIDGE_THICKNESS / 2,
+            width: longSize,
+            height: BRIDGE_THICKNESS,
+        };
+    }
+    if (side === 'below') {
+        return {
+            x: nodeCenterX - BRIDGE_THICKNESS / 2,
+            y: nodeRect.y + nodeRect.height - BRIDGE_OVERLAP,
+            width: BRIDGE_THICKNESS,
+            height: longSize,
+        };
+    }
+    return {
+        x: nodeCenterX - BRIDGE_THICKNESS / 2,
+        y: panelRect.y + panelRect.height - BRIDGE_OVERLAP,
+        width: BRIDGE_THICKNESS,
+        height: longSize,
     };
 }
 
@@ -73,5 +148,25 @@ export function computePanelPlacement({nodeRect, panelSize, workArea, margin = P
     const clamped = clampPosition({
         x, y, width: panelSize.width, height: panelSize.height, workArea,
     });
-    return {x: clamped.x, y: clamped.y, side};
+    const panelRect = {
+        x: clamped.x,
+        y: clamped.y,
+        width: panelSize.width,
+        height: panelSize.height,
+    };
+    const attachment = {
+        x: side === 'right' ? panelRect.x
+            : side === 'left' ? panelRect.x + panelRect.width
+                : nodeCenterX,
+        y: side === 'below' ? panelRect.y
+            : side === 'above' ? panelRect.y + panelRect.height
+                : nodeCenterY,
+    };
+    return {
+        x: clamped.x,
+        y: clamped.y,
+        side,
+        attachment,
+        bridge: computeBridge({side, nodeRect, panelRect, margin}),
+    };
 }

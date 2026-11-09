@@ -21,5 +21,33 @@
       <summary>Whether this extension disabled Ubuntu Dock</summary>
       <description>True iff this extension is the one that turned ubuntu-dock@ubuntu.com off, and is therefore responsible for turning it back on when this extension is disabled.</description>
     </key>
+    <key name="putty-palette" type="s">
+      <default>'plum'</default>
+      <choices>
+        <choice value="plum"/>
+        <choice value="terracotta"/>
+        <choice value="moss"/>
+        <choice value="ocean"/>
+        <choice value="high-contrast"/>
+      </choices>
+      <summary>Putty material palette</summary>
+      <description>The curated color palette used by the Node, bridge, and application panel.</description>
+    </key>
+    <key name="node-scale" type="d">
+      <default>1.0</default>
+      <range min="0.85" max="1.5"/>
+      <summary>Node size</summary>
+      <description>Compositor scale applied to the native 64 by 60 pixel Node texture.</description>
+    </key>
+    <key name="motion-style" type="s">
+      <default>'system'</default>
+      <choices>
+        <choice value="system"/>
+        <choice value="reduced"/>
+        <choice value="off"/>
+      </choices>
+      <summary>Motion style</summary>
+      <description>Whether Putty follows GNOME animations, uses reduced motion, or disables transitions.</description>
+    </key>
   </schema>
 </schemalist>

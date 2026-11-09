@@ -6,6 +6,11 @@
   "private": true,
   "license": "GPL-2.0-or-later",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "generate:assets": "node scripts/generate-blob-svgs.mjs",
+    "check:assets": "node scripts/generate-blob-svgs.mjs --check",
+    "check:syntax": "node --check extension.js && node --check node.js && node --check panel.js && node --check prefs.js && bash -n scripts/*.sh",
+    "validate": "npm test && npm run check:syntax && npm run check:assets",
+    "pack": "bash scripts/pack-release.sh"
   }
 }

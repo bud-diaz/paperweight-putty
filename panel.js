@@ -1,86 +1,122 @@
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import Shell from 'gi://Shell';
+import Pango from 'gi://Pango';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
+
 import {computePanelPlacement, PANEL_WIDTH, PANEL_HEIGHT} from './nodePosition.js';
+import {normalizePaletteName} from './theme.js';
+import {resolveMotionPolicy, motionDuration} from './motion.js';
+import {deduplicateRunning} from './favorites.js';
+import {nextPanelState} from './panelState.js';
 
 const ICON_SIZE = 40;
+const TILES_PER_ROW = 5;
 
-// Hand-rolled expand panel (not PopupMenu.PopupMenu) so we control the
-// 4-direction flip ourselves via nodePosition.computePanelPlacement().
-//
-// Dismissal uses Main.pushModal/popModal, but the grab target (`this.actor`)
-// is a full-stage-sized invisible root, not the visible panel box itself.
-// Once a grab is active, clicks outside the grabbed actor's subtree aren't
-// delivered as normal Clutter events at all -- there's nothing to catch on
-// global.stage, not just a misidentified source. Making the grabbed actor
-// cover the whole stage, with the real panel as its child, means every
-// click is legitimately "inside the grab": clicks on the visible content
-// are picked (and absorbed) by it or its rows as usual, and clicks on the
-// empty rest of the root are picked as the root itself, which is exactly
-// when we want to close.
 export class Panel {
-    constructor({onClose}) {
+    constructor({
+        onClose,
+        onOpenPreferences,
+        palette = 'plum',
+        motionStyle = 'system',
+        systemAnimationsEnabled = true,
+    }) {
         this.onClose = onClose;
+        this.onOpenPreferences = onOpenPreferences;
         this.actor = null;
-        this._content = null;
         this._grab = null;
         this._stageKeyId = null;
+        this._state = 'closed';
+        this._palette = normalizePaletteName(palette);
+        this._motionStyle = motionStyle;
+        this._systemAnimationsEnabled = systemAnimationsEnabled;
+        this._transitionGeneration = 0;
+        this._firstFocusable = null;
     }
 
     get isOpen() {
-        return this.actor !== null;
+        return this._state !== 'closed';
+    }
+
+    get state() {
+        return this._state;
+    }
+
+    get motionPolicy() {
+        return resolveMotionPolicy(this._motionStyle, this._systemAnimationsEnabled);
+    }
+
+    setAppearance({palette, motionStyle, systemAnimationsEnabled} = {}) {
+        if (palette !== undefined)
+            this._palette = normalizePaletteName(palette);
+        if (motionStyle !== undefined)
+            this._motionStyle = motionStyle;
+        if (systemAnimationsEnabled !== undefined)
+            this._systemAnimationsEnabled = systemAnimationsEnabled;
+        this._applyPaletteClasses();
+        if (this.motionPolicy === 'off' && this._state === 'opening') {
+            this._cancelTransitions();
+            this._finishOpening();
+        } else if (this.motionPolicy === 'off' && this._state === 'closing') {
+            this.forceClose();
+        }
     }
 
     open(nodeRect, workArea) {
+        if (this._state === 'closing')
+            this.forceClose();
         if (this.isOpen)
             return;
 
-        // St.Bin reads allocation policy from its child. Keep this content
-        // group at its preferred size and center that group within the fixed
-        // 450×230 panel canvas.
-        const box = new St.BoxLayout({
-            vertical: true,
-            style_class: 'putty-panel',
-            x_align: Clutter.ActorAlign.CENTER,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        this._populate(box);
-
-        this._content = new St.Bin({
-            style_class: 'putty-panel-bin',
-            child: box,
+        this._state = nextPanelState(this._state, 'open');
+        this._transitionGeneration++;
+        this.actor = new St.Widget({
             reactive: true,
+            x: 0,
+            y: 0,
         });
-        // Absorb clicks that land on the panel's own padding/background
-        // (not on a specific row) so they don't bubble up to the root and
-        // get treated as an outside click.
-        this._content.connect('button-press-event', () => Clutter.EVENT_STOP);
-
-        this.actor = new St.Widget({reactive: true, x: 0, y: 0});
         const [stageWidth, stageHeight] = global.stage.get_size();
         this.actor.set_size(stageWidth, stageHeight);
-        this.actor.add_child(this._content);
+
+        const placement = computePanelPlacement({
+            nodeRect,
+            panelSize: {width: PANEL_WIDTH, height: PANEL_HEIGHT},
+            workArea,
+        });
+        this._side = placement.side;
+
+        this._bridge = new St.Widget({reactive: false});
+        this._bridge.set_position(Math.round(placement.bridge.x), Math.round(placement.bridge.y));
+        this._bridge.set_size(placement.bridge.width, placement.bridge.height);
+        this.actor.add_child(this._bridge);
+
+        this._panelGroup = new St.Widget({
+            reactive: true,
+            width: PANEL_WIDTH,
+            height: PANEL_HEIGHT,
+        });
+        this._panelGroup.set_position(Math.round(placement.x), Math.round(placement.y));
+        this._panelGroup.connect('button-press-event', () => Clutter.EVENT_STOP);
+        this.actor.add_child(this._panelGroup);
+
+        this._material = new St.Widget({
+            reactive: false,
+            width: PANEL_WIDTH,
+            height: PANEL_HEIGHT,
+        });
+        this._panelGroup.add_child(this._material);
+
+        this._contentLayer = new St.Widget({
+            reactive: false,
+            width: PANEL_WIDTH,
+            height: PANEL_HEIGHT,
+        });
+        this._panelGroup.add_child(this._contentLayer);
+        this._populateContent();
+        this._applyPaletteClasses();
+
         Main.layoutManager.addChrome(this.actor);
-
-        // Size to the background SVG's own canvas, not the content's
-        // natural size: St's background-image doesn't reliably stretch to
-        // an arbitrary allocated size, so the container has to match the
-        // image's fixed dimensions for the two to actually line up. Only
-        // grow beyond it if content genuinely needs more room (accepting
-        // that the image won't stretch to match in that case -- a known
-        // limitation, fine for now since this layout comfortably fits the
-        // design target).
-        const [, naturalWidth] = box.get_preferred_width(-1);
-        const width = Math.max(naturalWidth, PANEL_WIDTH);
-        const [, naturalHeight] = box.get_preferred_height(width);
-        const panelSize = {width, height: Math.max(naturalHeight, PANEL_HEIGHT)};
-
-        const placement = computePanelPlacement({nodeRect, panelSize, workArea});
-        this._content.set_position(Math.round(placement.x), Math.round(placement.y));
-        this._content.set_size(panelSize.width, panelSize.height);
-
         this._grab = Main.pushModal(this.actor, {actionMode: Shell.ActionMode.POPUP});
         this.actor.connect('button-press-event', () => {
             this.close();
@@ -93,139 +129,316 @@ export class Panel {
             }
             return Clutter.EVENT_PROPAGATE;
         });
+
+        this._animateOpen();
+        this._firstFocusable?.grab_key_focus();
     }
 
-    // Favorites render as icon-over-label tiles in one row; running-only
-    // apps render beneath, prefixed by a "Running" label, as icon+dot
-    // tiles with no name -- matching putty-organic.md's supplied mockup.
-    _populate(box) {
-        const favoriteMap = AppFavorites.getAppFavorites().getFavoriteMap();
-        const running = Shell.AppSystem.get_default().get_running();
+    _applyPaletteClasses() {
+        if (!this._panelGroup)
+            return;
+        const paletteClass = `putty-palette-${this._palette}`;
+        this._panelGroup.set_style_class_name(`putty-panel-group ${paletteClass}`);
+        this._material.set_style_class_name(`putty-panel-material putty-panel-${this._palette}`);
+        this._bridge.set_style_class_name(
+            `putty-bridge putty-bridge-${this._palette}-${this._side}`);
+        this._contentLayer.set_style_class_name(`putty-panel-content ${paletteClass}`);
+    }
 
-        const seen = new Set();
-        const favorites = [];
-        for (const id in favoriteMap) {
-            favorites.push(favoriteMap[id]);
-            seen.add(id);
-        }
-        const runningOnly = [];
-        for (const app of running) {
-            if (!seen.has(app.get_id())) {
-                runningOnly.push(app);
-                seen.add(app.get_id());
-            }
-        }
+    _populateContent() {
+        const scroll = new St.ScrollView({
+            style_class: 'putty-panel-scroll',
+            overlay_scrollbars: true,
+            reactive: true,
+        });
+        scroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
+        scroll.set_position(30, 48);
+        scroll.set_size(PANEL_WIDTH - 60, PANEL_HEIGHT - 78);
+
+        const box = new St.BoxLayout({
+            vertical: true,
+            style_class: 'putty-panel',
+            x_expand: true,
+        });
+        scroll.add_child(box);
+        this._contentLayer.add_child(scroll);
+
+        const gear = new St.Button({
+            style_class: 'putty-settings-button',
+            can_focus: true,
+            reactive: true,
+            accessible_name: 'Open Putty preferences',
+            child: new St.Icon({icon_name: 'emblem-system-symbolic', icon_size: 16}),
+        });
+        gear.set_position(PANEL_WIDTH - 64, 22);
+        gear.set_size(36, 36);
+        gear.connect('clicked', () => {
+            // Preferences run out of process. Release the Shell modal before
+            // invoking Extension.openPreferences().
+            this.forceClose();
+            this.onOpenPreferences?.();
+        });
+        this._contentLayer.add_child(gear);
+
+        const favoriteManager = AppFavorites.getAppFavorites();
+        const favorites = favoriteManager.getFavorites?.() ??
+            Object.values(favoriteManager.getFavoriteMap());
+        const favoriteIds = favorites.map(app => app.get_id());
+        const runningOnly = deduplicateRunning(
+            favoriteIds, Shell.AppSystem.get_default().get_running());
 
         if (favorites.length === 0 && runningOnly.length === 0) {
             box.add_child(new St.Label({text: 'No apps', style_class: 'putty-empty'}));
+            this._firstFocusable = gear;
             return;
         }
 
-        // Two rows, not one long row: keeps the content area closer to the
-        // panel background's fixed aspect ratio instead of growing wider
-        // than the organic silhouette can stretch to cover.
-        const favoriteTiles = favorites.map(app => this._createAppTile(app));
-        favoriteTiles.push(this._createAllAppsTile());
-        const midpoint = Math.ceil(favoriteTiles.length / 2);
-
-        const firstRow = new St.BoxLayout({style_class: 'putty-favorites-row'});
-        for (const tile of favoriteTiles.slice(0, midpoint))
-            firstRow.add_child(tile);
-        this._addCenteredRow(box, firstRow);
-
-        const secondRowTiles = favoriteTiles.slice(midpoint);
-        if (secondRowTiles.length > 0) {
-            const secondRow = new St.BoxLayout({style_class: 'putty-favorites-row'});
-            for (const tile of secondRowTiles)
-                secondRow.add_child(tile);
-            this._addCenteredRow(box, secondRow);
-        }
+        const favoriteTiles = favorites.map(app => this._createAppButton(app));
+        favoriteTiles.push(this._createAllAppsButton());
+        this._addTileRows(box, favoriteTiles, 'putty-favorites-row');
 
         if (runningOnly.length > 0) {
-            const runningRow = new St.BoxLayout({style_class: 'putty-running-row'});
-            runningRow.add_child(new St.Label({
+            box.add_child(new St.Label({
                 text: 'Running',
-                y_align: Clutter.ActorAlign.CENTER,
                 style_class: 'putty-running-label',
+                x_align: Clutter.ActorAlign.CENTER,
             }));
-            for (const app of runningOnly)
-                runningRow.add_child(this._createRunningTile(app));
-            this._addCenteredRow(box, runningRow);
+            this._addTileRows(
+                box,
+                runningOnly.map(app => this._createRunningButton(app)),
+                'putty-running-row');
+        }
+
+        this._firstFocusable ??= gear;
+    }
+
+    _addTileRows(box, tiles, styleClass) {
+        for (let index = 0; index < tiles.length; index += TILES_PER_ROW) {
+            const row = new St.BoxLayout({
+                style_class: styleClass,
+                x_align: Clutter.ActorAlign.CENTER,
+            });
+            for (const tile of tiles.slice(index, index + TILES_PER_ROW)) {
+                row.add_child(tile);
+                this._firstFocusable ??= tile;
+            }
+            box.add_child(new St.Bin({child: row, x_expand: true}));
         }
     }
 
-    // The wrapper expands to the width of the widest row. Its child row owns
-    // the alignment policy, so incomplete rows remain centered within it.
-    _addCenteredRow(box, row) {
-        row.x_align = Clutter.ActorAlign.CENTER;
-        box.add_child(new St.Bin({
-            child: row,
-            x_expand: true,
-        }));
-    }
-
-    _activateAndClose(action) {
-        action();
-        this.close();
-        return Clutter.EVENT_STOP;
-    }
-
-    _createAppTile(app) {
-        const tile = new St.BoxLayout({
-            vertical: true,
-            reactive: true,
-            style_class: 'putty-app-tile',
-        });
-        tile.add_child(app.create_icon_texture(ICON_SIZE));
-        tile.add_child(new St.Label({
-            text: app.get_name(),
+    _makeLabel(text) {
+        const label = new St.Label({
+            text,
             x_align: Clutter.ActorAlign.CENTER,
             style_class: 'putty-app-tile-label',
-        }));
-        tile.connect('button-press-event',
-            () => this._activateAndClose(() => app.activate()));
-        return tile;
+        });
+        label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        label.clutter_text.single_line_mode = true;
+        label.set_width(64);
+        return label;
     }
 
-    _createRunningTile(app) {
-        const tile = new St.BoxLayout({
+    _createButton({name, icon, running = false, action}) {
+        const content = new St.BoxLayout({
             vertical: true,
-            reactive: true,
-            style_class: 'putty-running-tile',
+            style_class: running ? 'putty-running-tile-content' : 'putty-app-tile-content',
         });
-        tile.add_child(app.create_icon_texture(ICON_SIZE));
-        tile.add_child(new St.Widget({
-            x_align: Clutter.ActorAlign.CENTER,
-            style_class: 'putty-running-indicator',
-        }));
-        tile.connect('button-press-event',
-            () => this._activateAndClose(() => app.activate()));
-        return tile;
+        content.set_pivot_point(0.5, 0.5);
+        content.add_child(icon);
+        if (running) {
+            content.add_child(new St.Widget({
+                x_align: Clutter.ActorAlign.CENTER,
+                style_class: 'putty-running-indicator',
+            }));
+        } else {
+            content.add_child(this._makeLabel(name));
+        }
+
+        const button = new St.Button({
+            style_class: running ? 'putty-running-tile' : 'putty-app-tile',
+            can_focus: true,
+            reactive: true,
+            accessible_name: name,
+            child: content,
+        });
+        button.connect('clicked', () => {
+            action();
+            this.close();
+        });
+        button.connect('enter-event', () => {
+            this._animateTile(content, {scale: 1.04, y: -1});
+            return Clutter.EVENT_PROPAGATE;
+        });
+        button.connect('leave-event', () => {
+            this._animateTile(content, {scale: 1, y: 0});
+            return Clutter.EVENT_PROPAGATE;
+        });
+        button.connect('button-press-event', () => {
+            this._animateTile(content, {scale: 0.96, y: 1});
+            return Clutter.EVENT_PROPAGATE;
+        });
+        button.connect('button-release-event', () => {
+            this._animateTile(content, {scale: button.hover ? 1.04 : 1, y: button.hover ? -1 : 0});
+            return Clutter.EVENT_PROPAGATE;
+        });
+        return button;
     }
 
-    _createAllAppsTile() {
-        const tile = new St.BoxLayout({
-            vertical: true,
-            reactive: true,
-            style_class: 'putty-app-tile',
+    _animateTile(content, {scale, y}) {
+        const duration = motionDuration(this.motionPolicy, 90, 60);
+        content.remove_all_transitions();
+        if (duration === 0) {
+            content.set({scale_x: scale, scale_y: scale, translation_y: y});
+            return;
+        }
+        content.ease({
+            scale_x: scale,
+            scale_y: scale,
+            translation_y: y,
+            duration,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         });
-        tile.add_child(new St.Icon({
-            icon_name: 'view-app-grid-symbolic',
-            icon_size: ICON_SIZE,
-        }));
-        tile.add_child(new St.Label({
-            text: 'Show Apps',
-            x_align: Clutter.ActorAlign.CENTER,
-            style_class: 'putty-app-tile-label',
-        }));
-        tile.connect('button-press-event',
-            () => this._activateAndClose(() => Main.overview.showApps()));
-        return tile;
+    }
+
+    _createAppButton(app) {
+        return this._createButton({
+            name: app.get_name(),
+            icon: app.create_icon_texture(ICON_SIZE),
+            action: () => app.activate(),
+        });
+    }
+
+    _createRunningButton(app) {
+        return this._createButton({
+            name: app.get_name(),
+            icon: app.create_icon_texture(ICON_SIZE),
+            running: true,
+            action: () => app.activate(),
+        });
+    }
+
+    _createAllAppsButton() {
+        return this._createButton({
+            name: 'Show Apps',
+            icon: new St.Icon({icon_name: 'view-app-grid-symbolic', icon_size: ICON_SIZE}),
+            action: () => Main.overview.showApps(),
+        });
+    }
+
+    _setPanelPivot() {
+        const pivots = {
+            right: [0, 0.5],
+            left: [1, 0.5],
+            below: [0.5, 0],
+            above: [0.5, 1],
+        };
+        this._panelGroup.set_pivot_point(...pivots[this._side]);
+    }
+
+    _initialTransform() {
+        if (this._side === 'left' || this._side === 'right')
+            return {scale_x: 0.18, scale_y: 0.72};
+        return {scale_x: 0.72, scale_y: 0.18};
+    }
+
+    _animateOpen() {
+        this._cancelTransitions();
+        const generation = this._transitionGeneration;
+        this._setPanelPivot();
+        if (this.motionPolicy === 'off') {
+            this._finishOpening();
+            return;
+        }
+
+        const initial = this.motionPolicy === 'reduced'
+            ? {scale_x: 0.96, scale_y: 0.96}
+            : this._initialTransform();
+        this._panelGroup.set({...initial, opacity: 0});
+        this._bridge.opacity = 0;
+        this._contentLayer.opacity = 0;
+        this._bridge.ease({
+            opacity: 255,
+            duration: motionDuration(this.motionPolicy, 150, 80),
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+        this._panelGroup.ease({
+            scale_x: 1,
+            scale_y: 1,
+            opacity: 255,
+            duration: motionDuration(this.motionPolicy, 280, 100),
+            mode: this.motionPolicy === 'full'
+                ? Clutter.AnimationMode.EASE_OUT_BACK
+                : Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => {
+                if (generation === this._transitionGeneration)
+                    this._finishOpening();
+            },
+        });
+        this._contentLayer.ease({
+            opacity: 255,
+            delay: motionDuration(this.motionPolicy, 135, 30),
+            duration: motionDuration(this.motionPolicy, 125, 70),
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+    }
+
+    _finishOpening() {
+        if (!this.actor)
+            return;
+        this._panelGroup.set({scale_x: 1, scale_y: 1, opacity: 255});
+        this._bridge.opacity = 255;
+        this._contentLayer.opacity = 255;
+        this._state = nextPanelState(this._state, 'finish');
+    }
+
+    _cancelTransitions() {
+        this._transitionGeneration++;
+        this._panelGroup?.remove_all_transitions();
+        this._bridge?.remove_all_transitions();
+        this._contentLayer?.remove_all_transitions();
     }
 
     close() {
-        if (!this.isOpen)
+        if (!this.isOpen || this._state === 'closing')
             return;
+        this._state = nextPanelState(this._state, 'close');
+        this._cancelTransitions();
+        const generation = this._transitionGeneration;
+        if (this.motionPolicy === 'off') {
+            this.forceClose();
+            return;
+        }
+
+        this._contentLayer.ease({
+            opacity: 0,
+            duration: motionDuration(this.motionPolicy, 80, 55),
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+        this._bridge.ease({
+            opacity: 0,
+            delay: motionDuration(this.motionPolicy, 80, 30),
+            duration: motionDuration(this.motionPolicy, 110, 55),
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+        const target = this.motionPolicy === 'reduced'
+            ? {scale_x: 0.97, scale_y: 0.97}
+            : this._initialTransform();
+        this._panelGroup.ease({
+            ...target,
+            opacity: 0,
+            delay: motionDuration(this.motionPolicy, 55, 20),
+            duration: motionDuration(this.motionPolicy, 190, 80),
+            mode: Clutter.AnimationMode.EASE_IN_QUAD,
+            onComplete: () => {
+                if (generation === this._transitionGeneration)
+                    this.forceClose();
+            },
+        });
+    }
+
+    forceClose(notify = true) {
+        const wasOpen = this.isOpen;
+        this._cancelTransitions();
         if (this._stageKeyId) {
             global.stage.disconnect(this._stageKeyId);
             this._stageKeyId = null;
@@ -234,14 +447,22 @@ export class Panel {
             Main.popModal(this._grab);
             this._grab = null;
         }
-        Main.layoutManager.removeChrome(this.actor);
-        this.actor.destroy();
+        if (this.actor) {
+            Main.layoutManager.removeChrome(this.actor);
+            this.actor.destroy();
+        }
         this.actor = null;
-        this._content = null;
-        this.onClose?.();
+        this._panelGroup = null;
+        this._material = null;
+        this._bridge = null;
+        this._contentLayer = null;
+        this._firstFocusable = null;
+        this._state = nextPanelState(this._state, 'force-close');
+        if (wasOpen && notify)
+            this.onClose?.();
     }
 
     destroy() {
-        this.close();
+        this.forceClose(false);
     }
 }

@@ -1,62 +1,154 @@
-/* Putty organic theme (putty-organic.md). Colors are centralized in
-   theme.js; the SVG assets below are generated from those same constants
-   by scripts/generate-blob-svgs.mjs -- regenerate them if theme.js changes. */
+/* Actor allocation and SVG canvas sizes intentionally match nodePosition.js. */
 
-.putty-node {
-    background-image: url("assets/node-default.svg");
-    background-size: 100% 100%;
+.putty-node-input {
+    border-radius: 9999px;
 }
 
-.putty-node:hover {
-    background-image: url("assets/node-default.svg");
-    background-size: 103% 103%;
+.putty-node-input:focus {
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.95);
+}
+.putty-node-input-high-contrast:focus {
+    box-shadow: 0 0 0 4px rgba(0, 95, 204, 1.0);
 }
 
-.putty-panel-bin {
-    background-image: url("assets/panel-default.svg");
-    background-size: 100% 100%;
-}
+/* Pre-rendered pose bank: texture swaps are capped at 12Hz in node.js. */
+.putty-palette-plum.putty-node-pose-neutral { background-image: url("assets/node-plum-neutral.svg"); }
+.putty-palette-plum.putty-node-pose-east { background-image: url("assets/node-plum-east.svg"); }
+.putty-palette-plum.putty-node-pose-south-east { background-image: url("assets/node-plum-south-east.svg"); }
+.putty-palette-plum.putty-node-pose-south { background-image: url("assets/node-plum-south.svg"); }
+.putty-palette-plum.putty-node-pose-south-west { background-image: url("assets/node-plum-south-west.svg"); }
+.putty-palette-plum.putty-node-pose-west { background-image: url("assets/node-plum-west.svg"); }
+.putty-palette-plum.putty-node-pose-north-west { background-image: url("assets/node-plum-north-west.svg"); }
+.putty-palette-plum.putty-node-pose-north { background-image: url("assets/node-plum-north.svg"); }
+.putty-palette-plum.putty-node-pose-north-east { background-image: url("assets/node-plum-north-east.svg"); }
+.putty-palette-plum.putty-node-pose-pressed { background-image: url("assets/node-plum-pressed.svg"); }
+.putty-palette-plum.putty-node-pose-lifted { background-image: url("assets/node-plum-lifted.svg"); }
+.putty-palette-plum.putty-node-pose-impact { background-image: url("assets/node-plum-impact.svg"); }
+.putty-palette-plum.putty-node-pose-rebound { background-image: url("assets/node-plum-rebound.svg"); }
 
-.putty-panel {
-    /* Generous padding: the visible organic silhouette has soft, uneven
-       edges, so content needs real breathing room to avoid looking like
-       it's touching the material's border. */
-    padding: 28px;
-    spacing: 14px;
-}
+.putty-palette-terracotta.putty-node-pose-neutral { background-image: url("assets/node-terracotta-neutral.svg"); }
+.putty-palette-terracotta.putty-node-pose-east { background-image: url("assets/node-terracotta-east.svg"); }
+.putty-palette-terracotta.putty-node-pose-south-east { background-image: url("assets/node-terracotta-south-east.svg"); }
+.putty-palette-terracotta.putty-node-pose-south { background-image: url("assets/node-terracotta-south.svg"); }
+.putty-palette-terracotta.putty-node-pose-south-west { background-image: url("assets/node-terracotta-south-west.svg"); }
+.putty-palette-terracotta.putty-node-pose-west { background-image: url("assets/node-terracotta-west.svg"); }
+.putty-palette-terracotta.putty-node-pose-north-west { background-image: url("assets/node-terracotta-north-west.svg"); }
+.putty-palette-terracotta.putty-node-pose-north { background-image: url("assets/node-terracotta-north.svg"); }
+.putty-palette-terracotta.putty-node-pose-north-east { background-image: url("assets/node-terracotta-north-east.svg"); }
+.putty-palette-terracotta.putty-node-pose-pressed { background-image: url("assets/node-terracotta-pressed.svg"); }
+.putty-palette-terracotta.putty-node-pose-lifted { background-image: url("assets/node-terracotta-lifted.svg"); }
+.putty-palette-terracotta.putty-node-pose-impact { background-image: url("assets/node-terracotta-impact.svg"); }
+.putty-palette-terracotta.putty-node-pose-rebound { background-image: url("assets/node-terracotta-rebound.svg"); }
 
-.putty-favorites-row, .putty-running-row {
-    spacing: 18px;
-}
+.putty-palette-moss.putty-node-pose-neutral { background-image: url("assets/node-moss-neutral.svg"); }
+.putty-palette-moss.putty-node-pose-east { background-image: url("assets/node-moss-east.svg"); }
+.putty-palette-moss.putty-node-pose-south-east { background-image: url("assets/node-moss-south-east.svg"); }
+.putty-palette-moss.putty-node-pose-south { background-image: url("assets/node-moss-south.svg"); }
+.putty-palette-moss.putty-node-pose-south-west { background-image: url("assets/node-moss-south-west.svg"); }
+.putty-palette-moss.putty-node-pose-west { background-image: url("assets/node-moss-west.svg"); }
+.putty-palette-moss.putty-node-pose-north-west { background-image: url("assets/node-moss-north-west.svg"); }
+.putty-palette-moss.putty-node-pose-north { background-image: url("assets/node-moss-north.svg"); }
+.putty-palette-moss.putty-node-pose-north-east { background-image: url("assets/node-moss-north-east.svg"); }
+.putty-palette-moss.putty-node-pose-pressed { background-image: url("assets/node-moss-pressed.svg"); }
+.putty-palette-moss.putty-node-pose-lifted { background-image: url("assets/node-moss-lifted.svg"); }
+.putty-palette-moss.putty-node-pose-impact { background-image: url("assets/node-moss-impact.svg"); }
+.putty-palette-moss.putty-node-pose-rebound { background-image: url("assets/node-moss-rebound.svg"); }
 
-.putty-running-row {
-    padding-top: 6px;
-}
+.putty-palette-ocean.putty-node-pose-neutral { background-image: url("assets/node-ocean-neutral.svg"); }
+.putty-palette-ocean.putty-node-pose-east { background-image: url("assets/node-ocean-east.svg"); }
+.putty-palette-ocean.putty-node-pose-south-east { background-image: url("assets/node-ocean-south-east.svg"); }
+.putty-palette-ocean.putty-node-pose-south { background-image: url("assets/node-ocean-south.svg"); }
+.putty-palette-ocean.putty-node-pose-south-west { background-image: url("assets/node-ocean-south-west.svg"); }
+.putty-palette-ocean.putty-node-pose-west { background-image: url("assets/node-ocean-west.svg"); }
+.putty-palette-ocean.putty-node-pose-north-west { background-image: url("assets/node-ocean-north-west.svg"); }
+.putty-palette-ocean.putty-node-pose-north { background-image: url("assets/node-ocean-north.svg"); }
+.putty-palette-ocean.putty-node-pose-north-east { background-image: url("assets/node-ocean-north-east.svg"); }
+.putty-palette-ocean.putty-node-pose-pressed { background-image: url("assets/node-ocean-pressed.svg"); }
+.putty-palette-ocean.putty-node-pose-lifted { background-image: url("assets/node-ocean-lifted.svg"); }
+.putty-palette-ocean.putty-node-pose-impact { background-image: url("assets/node-ocean-impact.svg"); }
+.putty-palette-ocean.putty-node-pose-rebound { background-image: url("assets/node-ocean-rebound.svg"); }
 
-.putty-app-tile, .putty-running-tile {
-    spacing: 4px;
-}
+.putty-palette-high-contrast.putty-node-pose-neutral { background-image: url("assets/node-high-contrast-neutral.svg"); }
+.putty-palette-high-contrast.putty-node-pose-east { background-image: url("assets/node-high-contrast-east.svg"); }
+.putty-palette-high-contrast.putty-node-pose-south-east { background-image: url("assets/node-high-contrast-south-east.svg"); }
+.putty-palette-high-contrast.putty-node-pose-south { background-image: url("assets/node-high-contrast-south.svg"); }
+.putty-palette-high-contrast.putty-node-pose-south-west { background-image: url("assets/node-high-contrast-south-west.svg"); }
+.putty-palette-high-contrast.putty-node-pose-west { background-image: url("assets/node-high-contrast-west.svg"); }
+.putty-palette-high-contrast.putty-node-pose-north-west { background-image: url("assets/node-high-contrast-north-west.svg"); }
+.putty-palette-high-contrast.putty-node-pose-north { background-image: url("assets/node-high-contrast-north.svg"); }
+.putty-palette-high-contrast.putty-node-pose-north-east { background-image: url("assets/node-high-contrast-north-east.svg"); }
+.putty-palette-high-contrast.putty-node-pose-pressed { background-image: url("assets/node-high-contrast-pressed.svg"); }
+.putty-palette-high-contrast.putty-node-pose-lifted { background-image: url("assets/node-high-contrast-lifted.svg"); }
+.putty-palette-high-contrast.putty-node-pose-impact { background-image: url("assets/node-high-contrast-impact.svg"); }
+.putty-palette-high-contrast.putty-node-pose-rebound { background-image: url("assets/node-high-contrast-rebound.svg"); }
 
-.putty-app-tile-label {
-    color: #FFFFFF;
-    font-size: 0.85em;
-}
+.putty-panel-plum { background-image: url("assets/panel-plum.svg"); }
+.putty-panel-terracotta { background-image: url("assets/panel-terracotta.svg"); }
+.putty-panel-moss { background-image: url("assets/panel-moss.svg"); }
+.putty-panel-ocean { background-image: url("assets/panel-ocean.svg"); }
+.putty-panel-high-contrast { background-image: url("assets/panel-high-contrast.svg"); }
 
-.putty-running-label {
-    color: #E8D9F0;
-    font-size: 0.85em;
-    padding-right: 6px;
-}
+.putty-bridge-plum-left { background-image: url("assets/bridge-plum-left.svg"); }
+.putty-bridge-plum-right { background-image: url("assets/bridge-plum-right.svg"); }
+.putty-bridge-plum-above { background-image: url("assets/bridge-plum-above.svg"); }
+.putty-bridge-plum-below { background-image: url("assets/bridge-plum-below.svg"); }
+.putty-bridge-terracotta-left { background-image: url("assets/bridge-terracotta-left.svg"); }
+.putty-bridge-terracotta-right { background-image: url("assets/bridge-terracotta-right.svg"); }
+.putty-bridge-terracotta-above { background-image: url("assets/bridge-terracotta-above.svg"); }
+.putty-bridge-terracotta-below { background-image: url("assets/bridge-terracotta-below.svg"); }
+.putty-bridge-moss-left { background-image: url("assets/bridge-moss-left.svg"); }
+.putty-bridge-moss-right { background-image: url("assets/bridge-moss-right.svg"); }
+.putty-bridge-moss-above { background-image: url("assets/bridge-moss-above.svg"); }
+.putty-bridge-moss-below { background-image: url("assets/bridge-moss-below.svg"); }
+.putty-bridge-ocean-left { background-image: url("assets/bridge-ocean-left.svg"); }
+.putty-bridge-ocean-right { background-image: url("assets/bridge-ocean-right.svg"); }
+.putty-bridge-ocean-above { background-image: url("assets/bridge-ocean-above.svg"); }
+.putty-bridge-ocean-below { background-image: url("assets/bridge-ocean-below.svg"); }
+.putty-bridge-high-contrast-left { background-image: url("assets/bridge-high-contrast-left.svg"); }
+.putty-bridge-high-contrast-right { background-image: url("assets/bridge-high-contrast-right.svg"); }
+.putty-bridge-high-contrast-above { background-image: url("assets/bridge-high-contrast-above.svg"); }
+.putty-bridge-high-contrast-below { background-image: url("assets/bridge-high-contrast-below.svg"); }
 
+.putty-panel { spacing: 12px; }
+.putty-favorites-row, .putty-running-row { spacing: 7px; }
+.putty-running-row { padding-bottom: 4px; }
+.putty-app-tile, .putty-running-tile, .putty-settings-button {
+    padding: 4px;
+    border: 0;
+    border-radius: 9999px;
+    background-color: transparent;
+}
+.putty-settings-button { color: #000000; }
+.putty-app-tile:hover, .putty-running-tile:hover, .putty-settings-button:hover {
+    box-shadow: inset 0 2px 6px rgba(255,255,255,0.28), 0 3px 6px rgba(0,0,0,0.20);
+}
+.putty-app-tile:active, .putty-running-tile:active, .putty-settings-button:active {
+    box-shadow: inset 0 3px 7px rgba(0,0,0,0.28);
+}
+.putty-app-tile:focus, .putty-running-tile:focus, .putty-settings-button:focus {
+    border: 3px solid #000000;
+    padding: 1px;
+}
+.putty-app-tile-content, .putty-running-tile-content { spacing: 3px; }
+.putty-app-tile-label, .putty-empty { color: #000000; }
+.putty-running-label { color: #30203C; }
+.putty-app-tile-label, .putty-running-label { font-size: 0.85em; }
+.putty-running-label { padding-top: 5px; }
 .putty-running-indicator {
     width: 5px;
     height: 5px;
     border-radius: 9999px;
     background-color: #FFFFFF;
 }
+.putty-empty { padding: 12px; opacity: 0.75; }
 
-.putty-empty {
-    padding: 12px;
-    color: #FFFFFF;
-    opacity: 0.7;
-}
+.putty-palette-terracotta .putty-running-label { color: #351C17; }
+.putty-palette-moss .putty-running-label { color: #1D2A1E; }
+.putty-palette-ocean .putty-running-label { color: #152A39; }
+.putty-palette-high-contrast .putty-app-tile-label,
+.putty-palette-high-contrast .putty-running-label,
+.putty-palette-high-contrast .putty-empty { color: #171300; }
+.putty-palette-high-contrast .putty-running-indicator { background-color: #171300; }
+.putty-palette-high-contrast .putty-app-tile:focus,
+.putty-palette-high-contrast .putty-running-tile:focus,
+.putty-palette-high-contrast .putty-settings-button:focus { border-color: #005FCC; }

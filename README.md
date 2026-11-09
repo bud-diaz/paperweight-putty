@@ -10,7 +10,7 @@ again (or click outside, or press Escape) to collapse it back down.
 
 ## What it does
 
-- A small circular **Node** floats over your desktop. Drag it anywhere;
+- A small organic **Node** floats over your desktop. Drag it anywhere;
   it remembers where you left it (per-monitor, by stable monitor connector
   name) across logins.
 - A plain click/tap expands a panel anchored near the Node, listing your
@@ -20,6 +20,10 @@ again (or click outside, or press Escape) to collapse it back down.
   the edge of the screen, no matter which corner the Node is parked in.
 - Click outside the panel, press Escape, or tap the Node again to collapse
   it.
+- The Node leans toward the pointer, lifts while dragging, and settles with
+  a restrained plop. A generated bridge visually joins it to the panel.
+- Preferences provide five curated palettes, 85–150% Node sizing, motion
+  controls, and an editor for the existing system-wide GNOME Favorites list.
 - Enabling Putty disables Ubuntu Dock (`ubuntu-dock@ubuntu.com`) so there's
   exactly one dock-like element on screen. Disabling Putty restores Ubuntu
   Dock to whatever state it was actually in before (it won't resurrect a
@@ -60,6 +64,9 @@ only need to re-run `install-dev.sh` if the schema itself changes
 
 ```sh
 npm test          # runs the pure-logic unit tests (no GNOME Shell needed)
+npm run validate  # tests, JS syntax, and deterministic generated-asset check
+npm run generate:assets  # regenerate palette, pose, panel, and bridge SVGs
+npm run pack      # build a complete extension archive in dist/
 ```
 
 The drag/clamp/panel-placement math (`nodePosition.js`) and the Ubuntu
@@ -67,6 +74,16 @@ Dock ownership decision logic (`dockOwnership.js`) are plain JS modules
 with zero GNOME imports, specifically so they can be unit tested outside
 GNOME Shell. Everything that actually touches the Shell (`extension.js`,
 `node.js`, `panel.js`) is kept thin and only wires those modules up.
+
+The Node textures always retain their native 64×60 canvas. Size preferences
+use compositor scaling inside a stable wrapper whose hit target never drops
+below 64×64. Likewise, every panel actor remains exactly 450×230 because Shell
+does not reliably stretch the SVG background; additional apps are made
+reachable with an internal vertical scroller rather than by growing the asset.
+
+Preferences run in their separate GTK4/Libadwaita process (`prefs.js`) and do
+not import Shell, St, or Clutter. Favorite edits update GNOME's ordered
+`favorite-apps` setting—Putty deliberately does not maintain a second list.
 
 ## License
 

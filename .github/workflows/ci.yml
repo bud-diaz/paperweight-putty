@@ -1,4 +1,4 @@
-name: CI
+name: Validate
 
 on:
   push:
@@ -9,15 +9,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Validate metadata.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install XML and GSettings validators
+        run: sudo apt-get update && sudo apt-get install -y libxml2-utils libglib2.0-bin
+      - name: Unit, syntax, and generated-asset checks
+        run: npm run validate
+      - name: Validate metadata
         run: python3 -m json.tool metadata.json > /dev/null
-
-      - name: Validate GSettings schema XML
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y libxml2-utils
-          xmllint --noout schemas/*.gschema.xml
-
-      - name: Run unit tests
-        run: npm test
+      - name: Validate schemas
+        run: glib-compile-schemas --strict schemas
+      - name: Validate XML and SVG
+        run: xmllint --noout schemas/org.gnome.shell.extensions.putty.gschema.xml assets/*.svg
